@@ -1,0 +1,832 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>団体予約システム（HTML版：5分刻み・35分滞在・ログイン対応）</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body class="bg-gray-50 min-h-screen">
+  <div class="max-w-7xl mx-auto p-6">
+    <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
+      <!-- ヘッダー -->
+      <div class="flex justify-between items-center mb-4">
+        <h1 class="text-3xl font-bold text-gray-800 flex items-center gap-2">
+          <i data-lucide="calendar" class="text-blue-600"></i>
+          団体予約システム
+        </h1>
+
+        <div id="authArea" class="flex items-center gap-2">
+          <!-- ログイン情報 or ボタンをJSで描画 -->
+        </div>
+      </div>
+
+      <!-- 注意書き -->
+      <div class="bg-yellow-50 border border-yellow-200 rounded-md p-4 mb-6">
+        <div class="flex items-center gap-2 text-yellow-800">
+          <i data-lucide="alert-circle" class="w-4 h-4"></i>
+          <strong>注意:</strong>
+          開始30分前を過ぎてからの予約内容の変更・取り消しは、
+          <strong>つばめ屋</strong>まで直接ご連絡ください。
+        </div>
+      </div>
+
+      <!-- 日付選択 -->
+      <div class="mb-6">
+        <label class="block text-sm font-medium text-gray-700 mb-2">予約日</label>
+        <input id="dateInput" type="date" class="border border-gray-300 rounded-md px-3 py-2" />
+      </div>
+
+      <!-- 時間枠選択 -->
+      <div class="mb-8">
+        <h2 class="text-xl font-semibold text-gray-800 mb-4 flex items-center gap-2">
+          <i data-lucide="clock" class="text-green-600"></i>
+          時間枠選択（5分刻み・滞在35分／定員40）
+        </h2>
+        <div id="timeSlots" class="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-12 gap-2"></div>
+      </div>
+
+      <!-- 予約フォーム -->
+      <div id="formPanel" class="bg-gray-50 rounded-lg p-6 mb-8 border hidden">
+        <h3 class="text-lg font-semibold mb-4">
+          予約フォーム - <span id="formTimeLabel"></span>
+        </h3>
+        <div class="space-y-4">
+          <!-- 担当者（表示のみ） -->
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">担当者名</label>
+            <div id="contactDisplay" class="w-full border border-gray-200 bg-gray-100 rounded-md px-3 py-2 text-gray-700"></div>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">
+                ゲスト人数 <span class="text-red-500">*</span>
+              </label>
+              <input id="guestCount" type="number" min="0" value="0" class="w-full border border-gray-300 rounded-md px-3 py-2" />
+              <p id="err-guestCount" class="text-red-500 text-xs mt-1 hidden"></p>
+            </div>
+
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">
+                添乗員人数 <span class="text-red-500">*</span>
+              </label>
+              <input id="guideCount" type="number" min="0" value="0" class="w-full border border-gray-300 rounded-md px-3 py-2" />
+              <p id="err-guideCount" class="text-red-500 text-xs mt-1 hidden"></p>
+            </div>
+
+            <div class="md:col-span-2">
+              <label class="block text-sm font-medium text-gray-700 mb-1">メモ</label>
+              <input id="memo" type="text" class="w-full border border-gray-300 rounded-md px-3 py-2" />
+            </div>
+          </div>
+
+          <!-- 添乗員の食事選択 -->
+          <div id="mealsBlock" class="hidden">
+            <label class="block text-sm font-medium text-gray-700 mb-2">
+              添乗員の食事選択 <span class="text-red-500">*</span>
+            </label>
+            <div id="mealsContainer" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2"></div>
+            <p id="err-guideMeals" class="text-red-500 text-xs mt-1 hidden"></p>
+          </div>
+
+          <!-- エラー（締切/定員） -->
+          <div id="alertBlock" class="bg-red-50 border border-red-200 rounded-md p-3 hidden">
+            <div class="flex items-center gap-2 text-red-700">
+              <i data-lucide="alert-circle" class="w-4 h-4"></i>
+              <span id="alertText"></span>
+            </div>
+          </div>
+
+          <!-- 合計人数表示 -->
+          <div class="bg-blue-50 border border-blue-200 rounded-md p-3">
+            <div class="flex items-center gap-2 text-blue-700">
+              <i data-lucide="users" class="w-4 h-4"></i>
+              <span id="totalCountText">合計人数: 0人（ゲスト0人 + 食事あり添乗員0人）</span>
+            </div>
+          </div>
+
+          <div class="flex gap-2">
+            <button id="submitBtn" class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 flex items-center gap-2">
+              <i data-lucide="check-circle" class="w-4 h-4"></i> 予約確定
+            </button>
+            <button id="cancelFormBtn" class="bg-gray-600 text-white px-4 py-2 rounded-md hover:bg-gray-700">キャンセル</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ログイン/登録モーダル -->
+    <!-- ログイン -->
+    <div id="loginModal" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50">
+      <div class="bg-white rounded-lg p-6 w-full max-w-md mx-4">
+        <h2 class="text-xl font-semibold text-gray-800 mb-4">ログイン</h2>
+        <div class="space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">
+              名前（ひらがな・カタカナ） <span class="text-red-500">*</span>
+            </label>
+            <input id="loginName" type="text" placeholder="やまだたろう"
+                   class="w-full border border-gray-300 rounded-md px-3 py-2" />
+            <p id="loginErrName" class="text-red-500 text-xs mt-1 hidden"></p>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">
+              電話番号（下4桁） <span class="text-red-500">*</span>
+            </label>
+            <input id="loginLast4" type="text" maxlength="4" placeholder="1234"
+                   class="w-full border border-gray-300 rounded-md px-3 py-2" />
+            <p id="loginErrLast4" class="text-red-500 text-xs mt-1 hidden"></p>
+          </div>
+
+          <div id="loginErrAccountBox" class="hidden bg-red-50 border border-red-200 rounded-md p-3">
+            <p id="loginErrAccount" class="text-red-700 text-sm"></p>
+            <p class="text-sm text-gray-600 mt-2">
+              アカウントをお持ちでない方は
+              <button id="openRegisterFromLogin" class="text-blue-600 underline hover:text-blue-800 ml-1">こちらから登録</button>
+              してください。
+            </p>
+          </div>
+        </div>
+        <div class="flex gap-2 mt-6">
+          <button id="loginSubmit" class="flex-1 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700">ログイン</button>
+          <button id="loginCancel" class="flex-1 bg-gray-600 text-white px-4 py-2 rounded-md hover:bg-gray-700">キャンセル</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- アカウント作成 -->
+    <div id="registerModal" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50">
+      <div class="bg-white rounded-lg p-6 w-full max-w-md mx-4">
+        <h2 class="text-xl font-semibold text-gray-800 mb-4">アカウント作成</h2>
+        <div class="space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">
+              名前（ひらがな・カタカナ） <span class="text-red-500">*</span>
+            </label>
+            <input id="regName" type="text" placeholder="やまだたろう"
+                   class="w-full border border-gray-300 rounded-md px-3 py-2" />
+            <p id="regErrName" class="text-red-500 text-xs mt-1 hidden"></p>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">
+              電話番号（11桁、ハイフンなし） <span class="text-red-500">*</span>
+            </label>
+            <input id="regPhone" type="tel" maxlength="11" placeholder="09012345678"
+                   class="w-full border border-gray-300 rounded-md px-3 py-2" />
+            <p id="regErrPhone" class="text-red-500 text-xs mt-1 hidden"></p>
+            <p class="text-xs text-gray-500 mt-1">※ 登録完了後、この番号にSMSで予約システムのURLをお送りします（開発用ダミー送信）</p>
+          </div>
+        </div>
+        <div class="flex gap-2 mt-6">
+          <button id="regSubmit"
+                  class="flex-1 bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center gap-2">
+            <span id="regSpinner" class="hidden w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+            <span id="regBtnText">アカウント作成</span>
+          </button>
+          <button id="regCancel" class="flex-1 bg-gray-600 text-white px-4 py-2 rounded-md hover:bg-gray-700">キャンセル</button>
+        </div>
+        <div class="mt-4 text-center">
+          <p class="text-sm text-gray-600">
+            既にアカウントをお持ちの方は
+            <button id="openLoginFromRegister" class="text-blue-600 underline hover:text-blue-800 ml-1">こちらからログイン</button>
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- 予約一覧表 -->
+    <div class="bg-white rounded-lg shadow-lg p-6">
+      <h2 class="text-2xl font-semibold text-gray-800 mb-4">
+        予約一覧 - <span id="dateLabel"></span>
+      </h2>
+
+      <div class="overflow-x-auto">
+        <table class="w-full border-collapse border border-gray-300">
+          <thead>
+            <tr id="timeHeaderRow" class="bg-gray-50"></tr>
+          </thead>
+          <tbody id="tableBody"></tbody>
+        </table>
+
+        <!-- サマリー -->
+        <div class="mt-6 p-4 bg-gray-50 rounded-lg">
+          <h3 class="font-semibold text-gray-800 mb-2" id="summaryTitle"></h3>
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+            <div class="bg-white p-3 rounded border">
+              <div class="text-gray-600">総予約数</div>
+              <div id="summaryCount" class="text-2xl font-bold text-blue-600">0件</div>
+            </div>
+            <div class="bg-white p-3 rounded border">
+              <div class="text-gray-600">最大同時利用人数</div>
+              <div id="summaryPeak" class="text-2xl font-bold text-orange-600">0人</div>
+            </div>
+            <div class="bg-white p-3 rounded border">
+              <div class="text-gray-600">定員超過時間帯</div>
+              <div id="summaryOver" class="text-2xl font-bold text-red-600">0枠</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+// ========= 定数 =========
+const SLOT_STEP_MIN = 5;      // 開始刻み（分）
+const STAY_MIN = 35;          // 滞在時間（分）
+const MAX_CAPACITY = 40;      // 同時利用上限
+const CUTOFF_MIN = 30;        // 予約・削除締切（開始前何分）
+
+// ========= 状態 =========
+const state = {
+  reservations: [],
+  selectedDate: new Date().toISOString().split('T')[0],
+  selectedTime: '',
+  form: { guestCount: 0, guideCount: 0, guideMeals: [], memo: '' },
+  user: null,
+  accounts: [],
+  isRegistering: false
+};
+
+// ========= ユーティリティ =========
+function generateTimeSlots() {
+  const slots = [];
+  for (let hour = 11; hour < 16; hour++) {
+    for (let minute = 0; minute < 60; minute += SLOT_STEP_MIN) {
+      slots.push(`${String(hour).padStart(2,'0')}:${String(minute).padStart(2,'0')}`);
+    }
+  }
+  return slots;
+}
+function toDateTime(dateStr, hhmm) {
+  return new Date(`${dateStr}T${hhmm}`);
+}
+function addMinutesHHMM(hhmm, mins) {
+  const [H, M] = hhmm.split(':').map(Number);
+  const d = new Date(2000,0,1,H,M);
+  d.setMinutes(d.getMinutes()+mins);
+  return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+}
+function isDeadlinePassed(dateStr, startHHMM) {
+  const start = toDateTime(dateStr, startHHMM);
+  const cutoff = new Date(start.getTime() - CUTOFF_MIN * 60 * 1000);
+  return new Date() > cutoff;
+}
+function countEatingGuides(guideMeals) {
+  return (guideMeals || []).filter(m => m !== '食べない').length;
+}
+function calculateTotalCount(guestCount, guideMeals) {
+  return parseInt(guestCount || 0, 10) + countEatingGuides(guideMeals || []);
+}
+function checkCapacity(date, startTime, addCount) {
+  const start = toDateTime(date, startTime).getTime();
+  const end   = start + STAY_MIN * 60 * 1000;
+  const sameDay = state.reservations.filter(r => r.date === date);
+
+  for (let t = start; t < end; t += 60 * 1000) {
+    let sum = 0;
+    sameDay.forEach(r => {
+      const rs = toDateTime(r.date, r.startTime).getTime();
+      const re = rs + STAY_MIN * 60 * 1000;
+      if (t >= rs && t < re) sum += r.totalCount;
+    });
+    if (sum + addCount > MAX_CAPACITY) return false;
+  }
+  return true;
+}
+
+// ========= ストレージ =========
+function loadStorage() {
+  const savedUser = sessionStorage.getItem('reservationUser');
+  if (savedUser) {
+    try { state.user = JSON.parse(savedUser); } catch { sessionStorage.removeItem('reservationUser'); }
+  }
+  const savedAccounts = localStorage.getItem('reservationAccounts');
+  if (savedAccounts) {
+    try { state.accounts = JSON.parse(savedAccounts); } catch { localStorage.removeItem('reservationAccounts'); }
+  }
+}
+function saveAccounts() {
+  localStorage.setItem('reservationAccounts', JSON.stringify(state.accounts));
+}
+function saveUserSession() {
+  if (state.user) sessionStorage.setItem('reservationUser', JSON.stringify(state.user));
+  else sessionStorage.removeItem('reservationUser');
+}
+
+// ========= DOM 参照 =========
+const authArea = document.getElementById('authArea');
+
+const dateInput = document.getElementById('dateInput');
+const timeSlotsEl = document.getElementById('timeSlots');
+
+const formPanel = document.getElementById('formPanel');
+const formTimeLabel = document.getElementById('formTimeLabel');
+const contactDisplay = document.getElementById('contactDisplay');
+const guestCountEl = document.getElementById('guestCount');
+const guideCountEl = document.getElementById('guideCount');
+const memoEl = document.getElementById('memo');
+const mealsBlock = document.getElementById('mealsBlock');
+const mealsContainer = document.getElementById('mealsContainer');
+const totalCountText = document.getElementById('totalCountText');
+const submitBtn = document.getElementById('submitBtn');
+const cancelFormBtn = document.getElementById('cancelFormBtn');
+
+const dateLabel = document.getElementById('dateLabel');
+const timeHeaderRow = document.getElementById('timeHeaderRow');
+const tableBody = document.getElementById('tableBody');
+
+const summaryTitle = document.getElementById('summaryTitle');
+const summaryCount = document.getElementById('summaryCount');
+const summaryPeak = document.getElementById('summaryPeak');
+const summaryOver = document.getElementById('summaryOver');
+
+// ログインモーダル
+const loginModal = document.getElementById('loginModal');
+const loginName = document.getElementById('loginName');
+const loginLast4 = document.getElementById('loginLast4');
+const loginErrName = document.getElementById('loginErrName');
+const loginErrLast4 = document.getElementById('loginErrLast4');
+const loginErrAccountBox = document.getElementById('loginErrAccountBox');
+const loginErrAccount = document.getElementById('loginErrAccount');
+const loginSubmit = document.getElementById('loginSubmit');
+const loginCancel = document.getElementById('loginCancel');
+const openRegisterFromLogin = document.getElementById('openRegisterFromLogin');
+
+// 登録モーダル
+const registerModal = document.getElementById('registerModal');
+const regName = document.getElementById('regName');
+const regPhone = document.getElementById('regPhone');
+const regErrName = document.getElementById('regErrName');
+const regErrPhone = document.getElementById('regErrPhone');
+const regSubmit = document.getElementById('regSubmit');
+const regCancel = document.getElementById('regCancel');
+const regSpinner = document.getElementById('regSpinner');
+const regBtnText = document.getElementById('regBtnText');
+const openLoginFromRegister = document.getElementById('openLoginFromRegister');
+
+// ========= UI ヘルパ =========
+function showLoginModal(show) {
+  loginModal.classList.toggle('hidden', !show);
+  loginModal.classList.toggle('flex', show);
+}
+function showRegisterModal(show) {
+  registerModal.classList.toggle('hidden', !show);
+  registerModal.classList.toggle('flex', show);
+}
+function resetLoginErrors() {
+  loginErrName.classList.add('hidden'); loginErrName.textContent = '';
+  loginErrLast4.classList.add('hidden'); loginErrLast4.textContent = '';
+  loginErrAccountBox.classList.add('hidden'); loginErrAccount.textContent = '';
+}
+function resetRegisterErrors() {
+  regErrName.classList.add('hidden'); regErrName.textContent = '';
+  regErrPhone.classList.add('hidden'); regErrPhone.textContent = '';
+}
+function showError(idSuffix, text) {
+  const el = document.getElementById(`err-${idSuffix}`);
+  if (!el) return;
+  if (text) { el.textContent = text; el.classList.remove('hidden'); }
+  else { el.textContent = ''; el.classList.add('hidden'); }
+}
+function showAlert(text) {
+  const block = document.getElementById('alertBlock');
+  const span = document.getElementById('alertText');
+  if (text) { span.textContent = text; block.classList.remove('hidden'); }
+  else { span.textContent = ''; block.classList.add('hidden'); }
+}
+function renderAuthArea() {
+  authArea.innerHTML = '';
+  if (state.user) {
+    const wrap = document.createElement('div');
+    wrap.className = 'flex items-center gap-4';
+    wrap.innerHTML = `
+      <div class="text-sm text-gray-600">ログイン中: <span class="font-semibold">${state.user.contactDisplay}</span></div>
+      <button id="logoutBtn" class="flex items-center gap-2 px-3 py-2 text-sm bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200">
+        <i data-lucide="log-out" class="w-4 h-4"></i> ログアウト
+      </button>`;
+    authArea.appendChild(wrap);
+    wrap.querySelector('#logoutBtn').addEventListener('click', () => {
+      state.user = null;
+      saveUserSession();
+      formPanel.classList.add('hidden');
+      renderAll();
+    });
+  } else {
+    const wrap = document.createElement('div');
+    wrap.className = 'flex gap-2';
+    wrap.innerHTML = `
+      <button id="openLogin" class="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">
+        <i data-lucide="user" class="w-4 h-4"></i> ログイン
+      </button>
+      <button id="openRegister" class="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700">
+        <i data-lucide="user" class="w-4 h-4"></i> アカウント作成
+      </button>`;
+    authArea.appendChild(wrap);
+    wrap.querySelector('#openLogin').addEventListener('click', () => { resetLoginErrors(); loginName.value=''; loginLast4.value=''; showLoginModal(true); });
+    wrap.querySelector('#openRegister').addEventListener('click', () => { resetRegisterErrors(); regName.value=''; regPhone.value=''; showRegisterModal(true); });
+  }
+  lucide.createIcons();
+}
+
+// ========= ログイン/登録 =========
+function validateLogin() {
+  resetLoginErrors();
+  let ok = true;
+  const name = (loginName.value || '').trim();
+  const last4 = (loginLast4.value || '').trim();
+  const namePattern = /^[ぁ-ゖァ-ヺー]+$/; // ひらがな・カタカナ・長音
+  if (!name) { loginErrName.textContent='名前は必須です'; loginErrName.classList.remove('hidden'); ok=false; }
+  else if (!namePattern.test(name)) { loginErrName.textContent='名前はひらがな・カタカナのみで入力してください'; loginErrName.classList.remove('hidden'); ok=false; }
+  const last4Pattern = /^\d{4}$/;
+  if (!last4) { loginErrLast4.textContent='電話番号の下4桁は必須です'; loginErrLast4.classList.remove('hidden'); ok=false; }
+  else if (!last4Pattern.test(last4)) { loginErrLast4.textContent='電話番号の下4桁を半角数字4桁で入力してください'; loginErrLast4.classList.remove('hidden'); ok=false; }
+  if (!ok) return false;
+
+  const match = state.accounts.find(acc => acc.nameKana === name && acc.phoneLast4 === last4);
+  if (!match) {
+    loginErrAccount.textContent = 'アカウントが見つかりません。名前と電話番号下4桁を確認してください。';
+    loginErrAccountBox.classList.remove('hidden');
+    return false;
+  }
+  return true;
+}
+function handleLogin() {
+  if (!validateLogin()) return;
+  const name = loginName.value.trim();
+  const last4 = loginLast4.value.trim();
+  state.user = { nameKana: name, phoneLast4: last4, contactDisplay: `${name}（${last4}）` };
+  saveUserSession();
+  showLoginModal(false);
+  renderAll();
+}
+function validateRegister() {
+  resetRegisterErrors();
+  let ok = true;
+  const name = (regName.value || '').trim();
+  const phone = (regPhone.value || '').trim();
+  const namePattern = /^[ぁ-ゖァ-ヺー]+$/;
+  if (!name) { regErrName.textContent='名前は必須です'; regErrName.classList.remove('hidden'); ok=false; }
+  else if (!namePattern.test(name)) { regErrName.textContent='名前はひらがな・カタカナのみで入力してください'; regErrName.classList.remove('hidden'); ok=false; }
+  const phonePattern = /^0\d{10}$/; // 0から始まる11桁
+  if (!phone) { regErrPhone.textContent='電話番号は必須です'; regErrPhone.classList.remove('hidden'); ok=false; }
+  else if (!phonePattern.test(phone)) { regErrPhone.textContent='電話番号は0から始まる11桁の半角数字で入力してください（ハイフンなし）'; regErrPhone.classList.remove('hidden'); ok=false; }
+  else if (state.accounts.find(a => a.phoneNumber === phone)) { regErrPhone.textContent='この電話番号は既に登録されています'; regErrPhone.classList.remove('hidden'); ok=false; }
+  return ok;
+}
+async function fakeSendSMS(phone, message) {
+  console.log('SMS送信（模擬）:', { to: phone, message });
+  await new Promise(r => setTimeout(r, 1000));
+  return true;
+}
+async function handleRegister() {
+  if (!validateRegister()) return;
+  state.isRegistering = true;
+  regSpinner.classList.remove('hidden');
+  regBtnText.textContent = '登録中...';
+  regSubmit.disabled = true; regCancel.disabled = true;
+
+  try {
+    const phone = regPhone.value.trim();
+    const account = {
+      id: Date.now(),
+      nameKana: regName.value.trim(),
+      phoneNumber: phone,
+      phoneLast4: phone.slice(-4),
+      createdAt: new Date().toISOString()
+    };
+    state.accounts.push(account); saveAccounts();
+
+    const smsMsg = `つばめ屋予約システムにご登録ありがとうございます。こちらのURLからご予約ください: ${window.location.href}`;
+    await fakeSendSMS(account.phoneNumber, smsMsg);
+
+    alert(`アカウント登録が完了しました！\n\n登録された電話番号（${account.phoneNumber}）にSMSでシステムのURLをお送りしました。\n\n今すぐログインして予約を開始できます。`);
+    showRegisterModal(false);
+    // ログインモーダルを開く
+    loginName.value = account.nameKana; loginLast4.value = account.phoneLast4;
+    resetLoginErrors();
+    showLoginModal(true);
+  } catch (e) {
+    console.error('登録エラー', e);
+    alert('アカウント登録中にエラーが発生しました。もう一度お試しください。');
+  } finally {
+    state.isRegistering = false;
+    regSpinner.classList.add('hidden');
+    regBtnText.textContent = 'アカウント作成';
+    regSubmit.disabled = false; regCancel.disabled = false;
+  }
+}
+
+// ========= フォーム =========
+function initializeForm(time) {
+  if (!state.user) { showLoginModal(true); return; }
+  state.selectedTime = time;
+  state.form = { guestCount: 0, guideCount: 0, guideMeals: [], memo: '' };
+  showAlert(''); showError('guestCount',''); showError('guideCount',''); showError('guideMeals','');
+  formTimeLabel.textContent = time;
+  contactDisplay.textContent = state.user.contactDisplay;
+  guestCountEl.value = 0; guideCountEl.value = 0; memoEl.value = '';
+  mealsContainer.innerHTML = ''; mealsBlock.classList.add('hidden');
+  updateTotalCountDisplay();
+  formPanel.classList.remove('hidden');
+  lucide.createIcons();
+}
+function handleGuideCountChange(val) {
+  const n = Math.max(0, parseInt(val || '0', 10));
+  state.form.guideCount = n;
+  state.form.guideMeals = Array(n).fill('食べない');
+  if (n > 0) {
+    mealsBlock.classList.remove('hidden');
+    mealsContainer.innerHTML = '';
+    for (let i = 0; i < n; i++) {
+      const wrap = document.createElement('div');
+      wrap.className = 'border rounded-md p-2';
+      wrap.innerHTML = `
+        <label class="text-xs text-gray-600 mb-1 block">添乗員 ${i+1}</label>
+        <select data-index="${i}" class="mealSel w-full text-sm border border-gray-300 rounded px-2 py-1">
+          <option value="食べない">食べない</option>
+          <option value="天丼">天丼</option>
+          <option value="冷">冷</option>
+          <option value="温">温</option>
+        </select>`;
+      mealsContainer.appendChild(wrap);
+    }
+  } else {
+    mealsBlock.classList.add('hidden');
+    mealsContainer.innerHTML = '';
+  }
+  updateTotalCountDisplay();
+}
+function handleMealChange(idx, value) {
+  state.form.guideMeals[idx] = value;
+  updateTotalCountDisplay();
+}
+function updateTotalCountDisplay() {
+  const total = calculateTotalCount(state.form.guestCount, state.form.guideMeals);
+  totalCountText.textContent = `合計人数: ${total}人（ゲスト${state.form.guestCount||0}人 + 食事あり添乗員${countEatingGuides(state.form.guideMeals)}人）`;
+}
+function validateForm() {
+  let ok = true; showAlert('');
+  if (state.form.guestCount < 0) { showError('guestCount','ゲスト人数は0以上で入力してください'); ok=false; } else showError('guestCount','');
+  if (state.form.guideCount < 0) { showError('guideCount','添乗員人数は0以上で入力してください'); ok=false; } else showError('guideCount','');
+  if (state.form.guideMeals.length !== state.form.guideCount) { showError('guideMeals','添乗員の食事選択が不足しています'); ok=false; } else showError('guideMeals','');
+  if (isDeadlinePassed(state.selectedDate, state.selectedTime)) { showAlert('この時間枠は予約締切を過ぎています'); ok=false; }
+  const add = calculateTotalCount(state.form.guestCount, state.form.guideMeals);
+  if (!checkCapacity(state.selectedDate, state.selectedTime, add)) { showAlert('この時間帯は定員を超過するため予約できません'); ok=false; }
+  return ok;
+}
+function handleSubmit() {
+  if (!state.user) { showLoginModal(true); return; }
+  if (!validateForm()) return;
+
+  const start = state.selectedTime;
+  const end = addMinutesHHMM(start, STAY_MIN);
+  const total = calculateTotalCount(state.form.guestCount, state.form.guideMeals);
+
+  const newReservation = {
+    id: Date.now(),
+    date: state.selectedDate,
+    startTime: start,
+    endTime: end,
+    contactDisplay: state.user.contactDisplay,
+    guestCount: state.form.guestCount,
+    guideCount: state.form.guideCount,
+    guideMeals: [...state.form.guideMeals],
+    memo: state.form.memo || '',
+    totalCount: total
+  };
+  state.reservations.push(newReservation);
+  formPanel.classList.add('hidden');
+  renderAll(); // 表に即時反映
+}
+function handleDeleteReservation(id) {
+  const r = state.reservations.find(x => x.id === id);
+  if (!r) { alert('予約が見つかりません'); return; }
+  if (isDeadlinePassed(r.date, r.startTime)) {
+    alert('開始30分前を過ぎた予約は取り消し・変更できません。つばめ屋へ直接ご連絡ください。');
+    return;
+  }
+  const msg = `以下の予約を削除しますか？\n\n担当者: ${r.contactDisplay}\n時間: ${r.startTime}〜${r.endTime}\n合計: ${r.totalCount}人`;
+  if (confirm(msg)) {
+    state.reservations = state.reservations.filter(x => x.id !== id);
+    renderAll();
+  }
+}
+
+// ========= レイアウト（表描画） =========
+function generateReservationLayout() {
+  const dayReservations = state.reservations.filter(r => r.date === state.selectedDate);
+  const slots = generateTimeSlots();
+
+  // 各スロット時点の同時人数
+  const slotData = slots.map(time => {
+    const t = toDateTime(state.selectedDate, time).getTime();
+    const overlap = dayReservations.filter(res => {
+      const rs = toDateTime(res.date, res.startTime).getTime();
+      const re = rs + STAY_MIN * 60 * 1000;
+      return t >= rs && t < re;
+    });
+    const total = overlap.reduce((s,r)=>s+r.totalCount,0);
+    return { time, totalCount: total };
+  });
+
+  const layout = [];
+  const occupied = new Set();
+  const span = STAY_MIN / SLOT_STEP_MIN; // 35分 / 5分 = 7
+
+  dayReservations.forEach(res => {
+    const startIndex = slots.indexOf(res.startTime);
+    if (startIndex === -1) return;
+    let row = 0;
+    while (true) {
+      let can = true;
+      for (let i=0;i<span;i++) {
+        if (occupied.has(`${row}-${startIndex+i}`)) { can=false; break; }
+      }
+      if (can) break;
+      row++;
+    }
+    for (let i=0;i<span;i++) occupied.add(`${row}-${startIndex+i}`);
+    layout.push({ ...res, startIndex, spanCount: span, row });
+  });
+
+  const maxRows = Math.max(...layout.map(r=>r.row), -1) + 1;
+  return { slotData, reservationLayout: layout, maxRows, timeSlots: slots };
+}
+
+function renderTimeButtons() {
+  const slots = generateTimeSlots();
+  timeSlotsEl.innerHTML = '';
+  slots.forEach(time => {
+    const disabled = isDeadlinePassed(state.selectedDate, time);
+    const btn = document.createElement('button');
+    btn.type='button';
+    btn.className = 'px-2 py-2 text-xs rounded-md border transition-colors ' +
+      (disabled ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                : 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100');
+    btn.innerHTML = `${time}${disabled?'<div class="text-xs text-red-500 mt-1">締切</div>':''}`;
+    btn.disabled = disabled;
+    btn.addEventListener('click', () => initializeForm(time));
+    timeSlotsEl.appendChild(btn);
+  });
+}
+
+function renderTable() {
+  const { slotData, reservationLayout, maxRows, timeSlots } = generateReservationLayout();
+
+  // ヘッダ
+  timeHeaderRow.innerHTML = '';
+  slotData.forEach(slot => {
+    const th = document.createElement('th');
+    th.className = 'border border-gray-300 px-2 py-2 text-center min-w-24';
+    const color =
+      slot.totalCount > MAX_CAPACITY ? 'text-red-600' :
+      slot.totalCount > 30          ? 'text-orange-600' : 'text-green-600';
+    th.innerHTML = `
+      <div class="font-mono text-sm font-semibold">${slot.time}</div>
+      <div class="text-xs font-semibold mt-1 ${color}">${slot.totalCount}/${MAX_CAPACITY}人</div>`;
+    timeHeaderRow.appendChild(th);
+  });
+
+  // 本体
+  tableBody.innerHTML = '';
+  if (maxRows === 0) {
+    const tr = document.createElement('tr');
+    const td = document.createElement('td');
+    td.colSpan = timeSlots.length;
+    td.className = 'border border-gray-300 px-4 py-8 text-center text-gray-500';
+    td.textContent = 'この日付には予約がありません';
+    tr.appendChild(td); tableBody.appendChild(tr);
+    return;
+  }
+
+  for (let row=0; row<maxRows; row++) {
+    const tr = document.createElement('tr');
+    for (let col=0; col<timeSlots.length; col++) {
+      const r = reservationLayout.find(x=>x.row===row && x.startIndex===col);
+      const spannedBy = reservationLayout.find(x=>x.row===row && x.startIndex<col && col<x.startIndex+x.spanCount);
+      if (spannedBy) continue;
+
+      const td = document.createElement('td');
+      td.className = 'border border-gray-300 px-2 py-2 align-top min-h-24';
+      td.colSpan = r ? r.spanCount : 1;
+
+      if (r) {
+        const locked = isDeadlinePassed(r.date, r.startTime);
+        td.innerHTML = `
+          <div class="bg-blue-50 border border-blue-200 rounded-md p-3">
+            <div class="space-y-2">
+              <div class="font-semibold text-blue-800 text-sm">${r.contactDisplay}</div>
+              <div class="text-gray-600 text-sm">${r.startTime}〜${r.endTime}</div>
+              <div class="grid grid-cols-2 gap-2 text-sm">
+                <div>ゲスト: ${r.guestCount}人</div>
+                <div>添乗員: ${r.guideCount}人</div>
+              </div>
+              <div class="text-sm">
+                <div class="text-gray-500 mb-1">食事:</div>
+                <div class="flex flex-wrap gap-1">
+                  ${r.guideMeals.map(m => `
+                    <span class="px-2 py-1 rounded text-xs ${m==='食べない'?'bg-gray-200 text-gray-600':'bg-green-100 text-green-700'}">
+                      ${m}
+                    </span>`).join('')}
+                </div>
+              </div>
+              ${r.memo ? `<div class="text-sm text-gray-500 border-t pt-2 mt-2">メモ: ${r.memo}</div>`:''}
+              <div class="flex justify-between items-center pt-2 border-t mt-2">
+                <div class="font-semibold text-blue-600">合計: ${r.totalCount}人</div>
+                <button data-del="${r.id}" type="button"
+                        class="p-2 rounded transition-colors ${locked?'text-gray-400 cursor-not-allowed':'text-red-500 hover:text-red-700 hover:bg-red-50'}"
+                        title="${locked?'開始30分前を過ぎています':'予約を削除'}"
+                        ${locked?'disabled':''}>
+                  <i data-lucide="x" class="w-4 h-4"></i>
+                </button>
+              </div>
+            </div>
+          </div>`;
+      } else {
+        td.innerHTML = `<div class="text-gray-400 text-xs text-center py-2"></div>`;
+      }
+      tr.appendChild(td);
+    }
+    tableBody.appendChild(tr);
+  }
+
+  // 削除イベント
+  tableBody.querySelectorAll('button[data-del]').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.preventDefault(); e.stopPropagation();
+      const id = parseInt(btn.getAttribute('data-del'), 10);
+      handleDeleteReservation(id);
+    });
+  });
+
+  lucide.createIcons();
+}
+
+function renderSummary() {
+  const { slotData } = generateReservationLayout();
+  const count = state.reservations.filter(r=>r.date===state.selectedDate).length;
+  const peak  = slotData.length ? Math.max(...slotData.map(s=>s.totalCount)) : 0;
+  const over  = slotData.filter(s=>s.totalCount > MAX_CAPACITY).length;
+  summaryTitle.textContent = `${state.selectedDate} の予約状況サマリー`;
+  summaryCount.textContent = `${count}件`;
+  summaryPeak.textContent  = `${peak}人`;
+  summaryOver.textContent  = `${over}枠`;
+}
+
+function renderAll() {
+  renderAuthArea();
+  dateLabel.textContent = state.selectedDate;
+  renderTimeButtons();
+  renderTable();
+  renderSummary();
+  lucide.createIcons();
+}
+
+// ========= 初期化 =========
+function init() {
+  loadStorage();
+
+  // 日付
+  dateInput.value = state.selectedDate;
+  dateInput.min = new Date().toISOString().split('T')[0];
+  dateInput.addEventListener('change', () => { state.selectedDate = dateInput.value; renderAll(); });
+
+  // フォーム入力
+  guestCountEl.addEventListener('input', e => { state.form.guestCount = parseInt(e.target.value||'0',10); updateTotalCountDisplay(); });
+  guideCountEl.addEventListener('input', e => { handleGuideCountChange(e.target.value); });
+  mealsContainer.addEventListener('change', e => {
+    if (e.target && e.target.classList.contains('mealSel')) {
+      const idx = parseInt(e.target.getAttribute('data-index'),10);
+      handleMealChange(idx, e.target.value);
+    }
+  });
+  memoEl.addEventListener('input', e => { state.form.memo = e.target.value; });
+  submitBtn.addEventListener('click', handleSubmit);
+  cancelFormBtn.addEventListener('click', () => formPanel.classList.add('hidden'));
+
+  // ログインモーダル
+  loginSubmit.addEventListener('click', handleLogin);
+  loginCancel.addEventListener('click', () => { showLoginModal(false); resetLoginErrors(); });
+  openRegisterFromLogin.addEventListener('click', () => { showLoginModal(false); resetRegisterErrors(); showRegisterModal(true); });
+
+  // 登録モーダル
+  regSubmit.addEventListener('click', handleRegister);
+  regCancel.addEventListener('click', () => { showRegisterModal(false); resetRegisterErrors(); });
+  openLoginFromRegister.addEventListener('click', () => { showRegisterModal(false); resetLoginErrors(); showLoginModal(true); });
+
+  // 30秒毎に締切表示＆削除ボタンの状態更新
+  setInterval(() => { renderTimeButtons(); renderTable(); renderSummary(); }, 30000);
+
+  renderAll();
+  lucide.createIcons();
+}
+
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>
